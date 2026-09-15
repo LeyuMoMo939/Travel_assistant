@@ -1,0 +1,25 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pydeps/
+.piptmp/
+.pytest_cache/
+
+# ===== Node / 前端构建产物 =====
+node_modules/
+dist/
+.vite/
+
+# ===== 环境变量(只提交示例文件) =====
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ===== 编辑器 / 系统 =====
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
