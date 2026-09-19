@@ -1,9 +1,16 @@
-import type { TripPlan, TripRequest } from './types'
+import type {
+  TripPlan,
+  TripPlanDetailResponse,
+  TripPlanListResponse,
+  TripRequest,
+} from './types'
 
 /** SSE 流式事件的结构(与后端 api/server.py 的 event_gen 对应) */
 interface StreamResult {
   ok: boolean
   plan?: TripPlan
+  /** 后端已把这条行程存档的记录 id(存档失败为 undefined) */
+  planId?: number
   message?: string
   logs: string[]
 }
@@ -75,6 +82,7 @@ async function readEventStream(
   let buf = ''
   const logs: string[] = []
   let plan: TripPlan | undefined
+  let planId: number | undefined
   let message: string | undefined
 
   for (;;) {
@@ -94,10 +102,43 @@ async function readEventStream(
         onNode(ev.node, ev.log)
       } else if (ev.type === 'plan') {
         plan = ev.data
+        planId = ev.plan_id
       } else if (ev.type === 'error') {
         message = ev.message
       }
     }
   }
-  return { ok: !!plan, plan, message, logs }
+  return { ok: !!plan, plan, planId, message, logs }
+}
+
+// ============ 历史行程(数据库存档) ============
+
+/**
+ * 历史行程列表(GET /api/plans):轻量摘要,按保存时间倒序。
+ */
+export async function listPlans(
+  params: { limit?: number; offset?: number; city?: string } = {},
+): Promise<TripPlanListResponse> {
+  const qs = new URLSearchParams()
+  if (params.limit != null) qs.set('limit', String(params.limit))
+  if (params.offset != null) qs.set('offset', String(params.offset))
+  if (params.city) qs.set('city', params.city)
+  const query = qs.toString()
+  const resp = await fetch('/api/plans' + (query ? `?${query}` : ''))
+  if (!resp.ok) throw new Error(await describeHttpError(resp))
+  return resp.json()
+}
+
+/** 单条历史行程详情(GET /api/plans/{id}),data 是完整 TripPlan */
+export async function getPlan(id: number): Promise<TripPlanDetailResponse> {
+  const resp = await fetch(`/api/plans/${id}`)
+  if (!resp.ok) throw new Error(await describeHttpError(resp))
+  return resp.json()
+}
+
+/** 删除一条历史行程(DELETE /api/plans/{id}) */
+export async function deletePlan(id: number): Promise<{ success: boolean; message: string }> {
+  const resp = await fetch(`/api/plans/${id}`, { method: 'DELETE' })
+  if (!resp.ok) throw new Error(await describeHttpError(resp))
+  return resp.json()
 }

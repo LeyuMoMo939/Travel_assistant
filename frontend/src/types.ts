@@ -79,4 +79,34 @@ export interface TripPlanResponse {
   success: boolean
   message: string
   data?: TripPlan
+  /** 成功生成后自动存档的记录 id;存档失败或规划失败时为 undefined */
+  plan_id?: number
+}
+
+// ============ 历史行程(数据库存档) ============
+
+export interface TripPlanSummary {
+  id: number
+  city: string
+  start_date: string
+  end_date: string
+  travel_days: number
+  total_budget: number
+  preferences: string[]
+  /** ISO 格式的保存时间,如 2026-09-19T14:30:00 */
+  created_at: string
+}
+
+export interface TripPlanListResponse {
+  success: boolean
+  message: string
+  total: number
+  items: TripPlanSummary[]
+}
+
+export interface TripPlanDetailResponse {
+  success: boolean
+  message: string
+  data?: TripPlan
+  created_at?: string
 }

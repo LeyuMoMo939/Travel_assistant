@@ -6,6 +6,8 @@ venv/
 .pydeps/
 .piptmp/
 .pytest_cache/
+# SQLite 回退模式的库文件(数据库内容不属于仓库)
+backend/data/
 
 # ===== Node / 前端构建产物 =====
 node_modules/

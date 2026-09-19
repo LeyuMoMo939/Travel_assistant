@@ -38,6 +38,9 @@
 │          ├─► attraction_node(景点)────┼─► planner ─► validate ─┬─► budget ─► END
 │          └─► hotel_node(酒店)─────────┘   并行执行  结构化输出 │      确定性算账
 │      三个采集节点各自容错降级              校验不合格+重试环 ◄──┘        │
+│                                                                         │
+│   规划成功 → 行程自动存档 MySQL(app/db;不配 DATABASE_URL 回退 SQLite)  │
+│   GET /api/plans 历史列表 · GET/DELETE /api/plans/{id} 详情/删除        │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -52,14 +55,20 @@ Travel_assistant/
 │   │   ├── services/
 │   │   │   ├── amap_service.py # 高德 REST API(统一 status 检查 + 字段清洗)
 │   │   │   └── llm.py          # LLM 客户端(带 timeout 和自动重试)
+│   │   ├── db/
+│   │   │   ├── database.py     # SQLAlchemy 引擎/会话(默认 MySQL,自动建库;可回退 SQLite)
+│   │   │   ├── models.py       # ORM 模型:trip_plans 表(行程整包 JSON + 可检索列)
+│   │   │   └── repository.py   # 行程档案的存/查/删
 │   │   └── graph/
 │   │       ├── state.py        # LangGraph 图状态定义(含 reducer + 重试环字段)
 │   │       ├── nodes.py        # 6 个节点:3采集(各自容错) + 规划 + 校验 + 预算
 │   │       └── trip_graph.py   # 组装 StateGraph(并行扇出/汇合 + 条件边重试环)
-│   ├── api/server.py           # FastAPI(/api/plan 一次性 + /api/plan/stream SSE + 静态托管)
+│   ├── api/server.py           # FastAPI(/api/plan + /api/plan/stream SSE + /api/plans 历史 + 静态托管)
 │   ├── main.py                 # CLI 入口(argparse,单次执行,同时拿进度和结果)
 │   ├── smoke_test.py           # 冒烟测试:全打桩,不需要任何 Key
 │   ├── tests/test_nodes.py     # pytest 单测:预算/温度清洗/日期校验/重试路由
+│   ├── tests/test_db.py        # pytest 单测:数据库仓储层(临时 SQLite,隔离真实库)
+│   ├── tests/test_api_history.py # pytest 集成:规划自动存档 + 历史接口(图打桩)
 │   ├── requirements.txt        # 运行时依赖(都带版本上界)
 │   ├── requirements-dev.txt    # 测试依赖
 │   └── .env.example            # 复制为 .env 并填入密钥
@@ -76,6 +85,7 @@ Travel_assistant/
 │   │       ├── ResultView.vue  # 结果页头部(天气条/建议/告警)
 │   │       ├── DayCard.vue     # 每日行程卡(景点/三餐/酒店)
 │   │       ├── BudgetCard.vue  # 预算明细条形图(标注估算值与晚数)
+│   │       ├── HistoryPanel.vue# 历史行程(存档列表/回看/删除)
 │   │       └── AmapView.vue    # 高德地图(可选,需 JS API Key)
 │   ├── package.json
 │   └── .env.example            # 可选:地图 JS API Key
@@ -200,7 +210,34 @@ npm run build:checked
 3. `planner_node` 用 `with_structured_output` 让 LLM 把真实数据整合成 `TripPlan`;
 4. `validate_node` 校验天数并写入 `plan_ok`,不合格时带着反馈走条件边回到 planner 重试(最多 2 次);
 5. `budget_node` 在 Python 里精确累加预算(住宿按 N-1 晚计算);
-6. SSE 事件实时推给前端进度面板,最后一条事件携带完整计划。
+6. SSE 事件实时推给前端进度面板,最后一条事件携带完整行程和 `plan_id`;
+7. 规划成功 → 行程**自动存档**进数据库(`app/db`),前端「🗂 历史行程」可随时回看/删除;
+   存档失败只写服务端日志,不影响本次规划结果。
+
+## 数据库与历史行程
+
+成功的行程会自动存档,首页的「🗂 历史行程」可以浏览、回看、删除这些记录。
+
+**默认走 MySQL**(SQLAlchemy ORM,连接串在 `backend/.env`):
+
+```bash
+DATABASE_URL=mysql+pymysql://root:你的密码@127.0.0.1:3306/travel?charset=utf8mb4
+```
+
+- 目标库不存在会**自动创建**(utf8mb4,兼容中文和 emoji),不需要手工 `CREATE DATABASE`;
+- MySQL 驱动 pymysql 已在 `requirements.txt`;想换 PostgreSQL 也只改这一行(自行装 `psycopg[binary]`);
+- 没装 MySQL?把 `DATABASE_URL` 那行**注释掉即回退到零配置 SQLite**(`backend/data/travel.db`,已被 .gitignore 忽略),ORM 模型和业务代码一行不用动。
+
+历史行程 API:
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/plans?limit=20&offset=0&city=北京` | 分页列表(按保存时间倒序,城市模糊过滤),轻量摘要 |
+| GET | `/api/plans/{id}` | 完整行程 + 当时的原始请求(便于将来做「按这套参数重新规划」) |
+| DELETE | `/api/plans/{id}` | 删除一条记录 |
+
+> 对数据库的态度是**降级不崩溃**:MySQL 没启动时规划照常工作(存档跳过、日志有记录),
+> 历史接口返回 `success=false` 的业务提示,具体原因看服务端日志。
 
 ## 两个需要知道的行为
 

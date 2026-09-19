@@ -6,8 +6,9 @@ import TripForm from './components/TripForm.vue'
 import LoadingPanel from './components/LoadingPanel.vue'
 import ResultView from './components/ResultView.vue'
 import AmapView from './components/AmapView.vue'
+import HistoryPanel from './components/HistoryPanel.vue'
 
-type View = 'form' | 'loading' | 'result'
+type View = 'form' | 'loading' | 'result' | 'history'
 
 /**
  * 演示模式:不用启动后端、不用配任何密钥,直接看一份完整的示例行程。
@@ -80,6 +81,21 @@ async function enterDemo() {
   view.value = 'result'
 }
 
+/** 打开历史行程列表(数据库存档) */
+function openHistory() {
+  errorMsg.value = ''
+  view.value = 'history'
+}
+
+/** 从历史里选中一条:复用结果页渲染 */
+function showHistoryPlan(p: TripPlan) {
+  plan.value = p
+  isMock.value = false
+  warnMsg.value = ''
+  errorMsg.value = ''
+  view.value = 'result'
+}
+
 // 带着 ?demo=1 打开就直接进演示(README 里的预览链接用这个)
 onMounted(() => {
   if (new URLSearchParams(location.search).has(DEMO_QUERY)) enterDemo()
@@ -106,10 +122,13 @@ function backToForm() {
 
     <div v-if="view === 'form'" class="demo-row">
       <button class="btn-ghost" @click="enterDemo">还没配好后端?先看一份示例行程 →</button>
-      <p class="demo-hint">示例数据是内置的,不需要后端、不需要任何密钥</p>
+      <button class="btn-ghost" @click="openHistory">🗂 历史行程</button>
+      <p class="demo-hint">示例数据是内置的,不需要后端、不需要任何密钥;成功规划的行程会自动存档,可随时回看</p>
     </div>
 
     <LoadingPanel v-else-if="view === 'loading'" :events="events" @cancel="cancelPlanning" />
+
+    <HistoryPanel v-else-if="view === 'history'" @close="backToForm" @view="showHistoryPlan" />
 
     <ResultView
       v-else-if="view === 'result' && plan"
@@ -129,5 +148,6 @@ function backToForm() {
 .hero h1 { margin: 0 0 8px; font-size: 30px; }
 .sub { color: var(--muted); margin: 0; }
 .demo-row { text-align: center; margin-top: 14px; }
+.demo-row .btn-ghost { margin: 0 5px; }
 .demo-hint { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
 </style>

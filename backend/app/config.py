@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     # 高德开放平台 Web服务 Key
     amap_api_key: str = ""
 
+    # 数据库连接串。默认 SQLite(文件在 backend/data/travel.db,零配置)。
+    # 换 MySQL / PostgreSQL 只改这里,并自行装驱动:pip install pymysql / "psycopg[binary]"
+    #   mysql+pymysql://user:password@127.0.0.1:3306/travel?charset=utf8mb4
+    #   postgresql+psycopg://user:password@127.0.0.1:5432/travel
+    database_url: str = "sqlite:///./data/travel.db"
+
     host: str = "0.0.0.0"
     port: int = 8000
 

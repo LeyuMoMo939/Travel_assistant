@@ -12,6 +12,8 @@ import asyncio
 
 from app.models.schemas import TripRequest
 from app.graph.trip_graph import trip_graph
+from app.db import repository
+from app.db.database import init_db
 
 
 def parse_args() -> argparse.Namespace:
@@ -76,6 +78,14 @@ async def main():
     if plan.budget:
         print(f"\n💰 预算:门票{plan.budget.total_attractions} + 住宿{plan.budget.total_hotels}"
               f"({plan.budget.nights}晚) + 餐饮{plan.budget.total_meals} = 总计 {plan.budget.total} 元")
+
+    # 与 API 行为一致:成功的行程自动存档。CLI 里存档失败只提示,不影响查看结果
+    try:
+        init_db()
+        plan_id = repository.save_plan(request, plan)
+        print(f"\n🗄 行程已存档(#{plan_id}),可在前端「历史行程」里回看")
+    except Exception as e:
+        print(f"\n⚠️ 行程存档失败(不影响本次结果):{e}")
 
 
 if __name__ == "__main__":

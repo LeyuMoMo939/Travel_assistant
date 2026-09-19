@@ -142,3 +142,42 @@ class TripPlanResponse(BaseModel):
     success: bool
     message: str = ""
     data: Optional[TripPlan] = None
+    # 成功生成后自动存档得到的记录 id;存档失败或规划失败时为 None
+    plan_id: Optional[int] = None
+
+
+# ============ 历史行程(存档查询) ============
+
+
+class TripPlanSummary(BaseModel):
+    """列表页用的轻量摘要:字段直接取自数据库列,不解析整包 plan_json"""
+
+    id: int
+    city: str
+    start_date: str
+    end_date: str
+    travel_days: int
+    total_budget: int = 0
+    preferences: List[str] = Field(default_factory=list)
+    created_at: datetime
+
+
+class TripPlanListResponse(BaseModel):
+    success: bool = True
+    message: str = ""
+    total: int = 0
+    items: List[TripPlanSummary] = Field(default_factory=list)
+
+
+class TripPlanDetailResponse(BaseModel):
+    success: bool = True
+    message: str = ""
+    data: Optional[TripPlan] = None
+    # 当时的原始请求:前端将来可以做「按这套参数重新规划」
+    request: Optional[TripRequest] = None
+    created_at: Optional[datetime] = None
+
+
+class TripPlanDeleteResponse(BaseModel):
+    success: bool
+    message: str = ""
