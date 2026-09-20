@@ -85,7 +85,7 @@ Travel_assistant/
 │   │       ├── ResultView.vue  # 结果页头部(天气条/建议/告警)
 │   │       ├── DayCard.vue     # 每日行程卡(景点/三餐/酒店)
 │   │       ├── BudgetCard.vue  # 预算明细条形图(标注估算值与晚数)
-│   │       ├── HistoryPanel.vue# 历史行程(存档列表/回看/删除)
+│   │       ├── HistoryPanel.vue # 历史行程(存档列表/回看/删除)
 │   │       └── AmapView.vue    # 高德地图(可选,需 JS API Key)
 │   ├── package.json
 │   └── .env.example            # 可选:地图 JS API Key
@@ -103,6 +103,7 @@ Travel_assistant/
 cd backend
 copy .env.example .env    # Windows;macOS/Linux 用 cp
 # 编辑 .env,至少填入 LLM_API_KEY 和 AMAP_API_KEY
+# 可选:DATABASE_URL 填 MySQL 连接串即启用历史行程存档;不填则自动用 SQLite
 ```
 
 ### 第 2 步:创建虚拟环境并安装依赖
@@ -180,7 +181,8 @@ python main.py 北京 2026-10-01 3 --preferences 历史文化 美食
 cd backend && .venv\Scripts\activate
 python smoke_test.py
 
-# 单元测试(预算/温度清洗/日期校验/重试路由)
+# 测试:单元 + 集成共 28 项(预算/温度清洗/日期校验/校验路由/数据库仓储/历史接口)
+# 全部不需要 Key、不联网、不碰真实数据库(仓储层用临时 SQLite 隔离)
 cd backend && .venv\Scripts\activate
 python -m pytest tests/ -v
 
@@ -218,7 +220,7 @@ npm run build:checked
 
 成功的行程会自动存档,首页的「🗂 历史行程」可以浏览、回看、删除这些记录。
 
-**默认走 MySQL**(SQLAlchemy ORM,连接串在 `backend/.env`):
+**配一行即可启用 MySQL**(SQLAlchemy ORM,连接串在 `backend/.env`):
 
 ```bash
 DATABASE_URL=mysql+pymysql://root:你的密码@127.0.0.1:3306/travel?charset=utf8mb4
